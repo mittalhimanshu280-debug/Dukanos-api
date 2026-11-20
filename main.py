@@ -1,3 +1,5 @@
+
+
 from flask import Flask, jsonify
 import requests
 
@@ -7,27 +9,62 @@ app = Flask(__name__)
 def home():
     return "DukaanOS API is running!"
 
+def fetch_product(barcode):
+    url = f"https://world.openfoodfacts.org/api/v3/product/{barcode}.json"
+
+    headers = {
+        "User-Agent": "DukaanOS/1.0 (Product Inventory App)"
+    }
+
+    response = requests.get(
+        url,
+        headers=headers,
+        timeout=25
+    )
+
+    data = response.json()
+    product = data.get("product") or {}
+    status = data.get("status")
+
+    found = (
+        status in (1, "1", "success")
+        or bool(product.get("product_name"))
+    )
+
+    return {
+        "found": found,
+        "barcode": barcode,
+        "api_status": status,
+        "status_verbose": data.get("status_verbose"),
+        "name": product.get("product_name"),
+        "brand": product.get("brands"),
+        "quantity": product.get("quantity"),
+        "image": product.get("image_url")
+    }
+
 @app.route("/product/<barcode>")
 def get_product(barcode):
-    url = f"https://world.openfoodfacts.org/api/v3/product/{barcode}.json"
-    headers = {"User-Agent": "DukaanOS/1.0"}
-
     try:
-        r = requests.get(url, headers=headers, timeout=20)
-        r.raise_for_status()
-        data = r.json()
-        p = data.get("product", {})
+        return jsonify(fetch_product(barcode))
+    except Exception as e:
+        return jsonify({
+            "found": False,
+            "error": str(e)
+        }), 500
 
-        if data.get("status") != 1:
-            return jsonify({"found": False})
+@app.route("/debug/<barcode>")
+def debug_product(barcode):
+    try:
+        url = f"https://world.openfoodfacts.org/api/v3/product/{barcode}.json"
+        response = requests.get(
+            url,
+            headers={"User-Agent": "DukaanOS/1.0"},
+            timeout=25
+        )
 
         return jsonify({
-            "found": True,
-            "barcode": barcode,
-            "name": p.get("product_name"),
-            "brand": p.get("brands"),
-            "quantity": p.get("quantity"),
-            "image": p.get("image_url")
+            "http_status": response.status_code,
+            "response": response.json()
         })
 
     except Exception as e:
