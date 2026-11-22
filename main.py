@@ -68,7 +68,7 @@ def lookup_and_update():
             os.environ["SPREADSHEET_ID"]
         )
 
-        sheet = spreadsheet.worksheet("Sheet 1")
+        sheet = spreadsheet.worksheet("Sheet1")
 
         barcodes = sheet.col_values(1)
 
